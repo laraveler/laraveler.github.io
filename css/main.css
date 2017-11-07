@@ -1082,6 +1082,7 @@ h3.aside-title {
   line-height: 1.1;
 }
 
+/*
 .about-me-image {
   margin-top: 20px;
   padding-top: 62.5%;
@@ -1089,6 +1090,7 @@ h3.aside-title {
   background-size: contain;
   background-repeat: no-repeat;
 }
+*/
 
 .about-me-text {
   font-family: "Trebuchet MS", monospace, 'Microsoft YaHei', STHeiti;
