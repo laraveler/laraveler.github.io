@@ -1,0 +1,43 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Laraveler</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link href="/css/bootstrap.min.css" rel="stylesheet"><link href="/css/font-awesome.min.css" rel="stylesheet"><link href="/css/main.css" rel="stylesheet"><script>var _hmt = _hmt || [];
+(function() {var hm = document.createElement("script");hm.src = "https://hm.baidu.com/hm.js?715556be789805461bdca8318cb19b5e";var s = document.getElementsByTagName("script")[0];s.parentNode.insertBefore(hm, s);})();</script></head><body><div class="wrap"><nav class="page-navigation"><div class="nav-container"><div class="page-header-logo"><h1 class="prince-log"><a href="/" class="home-link">Laraveler</a></h1></div><button type="button" data-toggle="collapse" data-target=".main-nav-items" class="navbar-toggle"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><ul class="collapse navbar-collapse main-nav-items"><li class="menu-item"><a href="/" target="_self">Home</a></li><li class="menu-item"><a href="/archives/" target="_self">Archives</a></li><li class="menu-item"><a href="/about/" target="_self">About</a></li></ul></div></nav><main class="prince-container"><div class="post"><article class="post-block"><h1 class="post-title">Lumen5.5中使用 JWT（Json Web Token） 实现基于API的用户认证</h1><div class="post-info">2017-11-10</div><div class="post-entry"><p>用户认证是Web应用的重要组成部分，基于API的用户认证有两个最佳解决方案 —— OAuth 2.0 和 JWT（JSON Web Token）。</p>
+<h1 id="1、JWT定义及其组成"><a href="#1、JWT定义及其组成" class="headerlink" title="1、JWT定义及其组成"></a>1、JWT定义及其组成</h1><p>JWT（JSON Web Token）是一个非常轻巧的规范。这个规范允许我们使用JWT在用户和服务器之间传递安全可靠的信息。</p>
+<p>一个JWT实际上就是一个字符串，它由三部分组成，头部、载荷与签名。</p>
+<a id="more"></a>
+<h2 id="载荷（Payload）"><a href="#载荷（Payload）" class="headerlink" title="载荷（Payload）"></a>载荷（Payload）</h2><p>我们先将用户认证的操作描述成一个JSON对象。其中添加了一些其他的信息，帮助今后收到这个JWT的服务器理解这个JWT。</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">"sub"</span>: <span class="string">"1"</span>,</span><br><span class="line">    <span class="attr">"iss"</span>: <span class="string">"http://localhost:8000/auth/login"</span>,</span><br><span class="line">    <span class="attr">"iat"</span>: <span class="number">1451888119</span>,</span><br><span class="line">    <span class="attr">"exp"</span>: <span class="number">1454516119</span>,</span><br><span class="line">    <span class="attr">"nbf"</span>: <span class="number">1451888119</span>,</span><br><span class="line">    <span class="attr">"jti"</span>: <span class="string">"37c107e4609ddbcc9c096ea5ee76c667"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里面的前6个字段都是由JWT的标准所定义的。</p>
+<blockquote>
+<p>  sub: 该JWT所面向的用户<br>    iss: 该JWT的签发者<br>    iat(issued at): 在什么时候签发的token<br>    exp(expires): token什么时候过期<br>    nbf(not before)：token在此时间之前不能被接收处理<br>    jti：JWT ID为web token提供唯一标识</p>
+</blockquote>
+<p>这些定义都可以在标准中找到。</p>
+<p>将上面的JSON对象进行base64编码可以得到下面的字符串：</p>
+<blockquote>
+<p>eyJzdWIiOiIxIiwiaXNzIjoiaHR0cDpcL1wvbG9jYWx<br>ob3N0OjgwMDFcL2F1dGhcL2xvZ2luIiwiaWF0IjoxNDUxODg4MTE5LCJleHAiOjE0NTQ1MTYxMTksIm5iZiI6MTQ1MTg4OD<br>ExOSwianRpIjoiMzdjMTA3ZTQ2MDlkZGJjYzljMDk2ZWE1ZWU3NmM2NjcifQ</p>
+</blockquote>
+<p>这个字符串我们将它称作JWT的Payload（载荷）。</p>
+<h2 id="头部（Header）"><a href="#头部（Header）" class="headerlink" title="头部（Header）"></a>头部（Header）</h2><p>JWT还需要一个头部，头部用于描述关于该JWT的最基本的信息，例如其类型以及签名所用的算法等。这也可以被表示成一个JSON对象：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;typ&quot;: &quot;JWT&quot;,</span><br><span class="line">  &quot;alg&quot;: &quot;HS256&quot;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在这里，我们说明了这是一个JWT，并且我们所用的签名算法（后面会提到）是HS256算法。</p>
+<p>对它也要进行Base64编码，之后的字符串就成了JWT的Header（头部）：</p>
+<blockquote>
+<p>eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9</p>
+</blockquote>
+<h2 id="签名（签名）"><a href="#签名（签名）" class="headerlink" title="签名（签名）"></a>签名（签名）</h2><p>将上面的两个编码后的字符串都用句号.连接在一起（头部在前），就形成了：</p>
+<blockquote>
+<p>eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwiaXNzIjoiaHR0cDpcL1wvbG9jYWx<br>ob3N0OjgwMDFcL2F1dGhcL2xvZ2luIiwiaWF0IjoxNDUxODg4MTE5LCJleHAiOjE0NTQ1MTYxMTksIm5iZiI6MTQ1MTg4OD<br>ExOSwianRpIjoiMzdjMTA3ZTQ2MDlkZGJjYzljMDk2ZWE1ZWU3NmM2NjcifQ</p>
+</blockquote>
+<p>最后，我们将上面拼接完的字符串用HS256算法进行加密。在加密的时候，我们还需要提供一个密钥（secret）:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">HMACSHA256(</span><br><span class="line">    base64UrlEncode(header) + &quot;.&quot; +</span><br><span class="line">    base64UrlEncode(payload),</span><br><span class="line">    secret</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>这样就可以得到我们加密后的内容：</p>
+<blockquote>
+<p>wyoQ95RjAyQ2FF3aj8EvCSaUmeP0KUqcCJDENNfnaT4</p>
+</blockquote>
+<p>这一部分又叫做签名。</p>
+<p>最后将这一部分签名也拼接在被签名的字符串后面，我们就得到了完整的JWT：</p>
+<blockquote>
+<p>eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIiwiaXNzIjoiaHR0cDpcL1wvbG9jYWx<br>ob3N0OjgwMDFcL2F1dGhcL2xvZ2luIiwiaWF0IjoxNDUxODg4MTE5LCJleHAiOjE0NTQ1MTYxMTksIm5iZiI6MTQ1MTg4OD<br>ExOSwianRpIjoiMzdjMTA3ZTQ2MDlkZGJjYzljMDk2ZWE1ZWU3NmM2NjcifQ.wyoQ95RjAyQ2FF3aj8EvCSaUmeP0KUqcCJDENNfnaT4</p>
+</blockquote>
+<hr>
+<h1 id="2、集成JWT到Lumen5-5"><a href="#2、集成JWT到Lumen5-5" class="headerlink" title="2、集成JWT到Lumen5.5"></a>2、集成JWT到Lumen5.5</h1><h3 id="参考："><a href="#参考：" class="headerlink" title="参考："></a>参考：</h3><p><a href="http://laravelacademy.org/post/3640.html" target="_blank" rel="noopener">Laravel5集成jwt-auth</a><br><a href="http://jwt-auth.readthedocs.io/en/docs/" target="_blank" rel="noopener">JWT-Auth官方文档</a></p>
+</div><div class="post-tags-box"><a class="tag-link" href="/tags/JWT-Auth1-0/">JWT-Auth1.0</a>, <a class="tag-link" href="/tags/Lumen5-5/">Lumen5.5</a></div></article></div><div class="post-nav"></div></main></div><footer><div class="copyright"><p>Crafted with <i class="fa fa-heart"></i> by&nbsp;Laraveler&nbsp;|&nbsp;<a href="http://hexo.io/" target="_blank">Hexo</a>Theme <a href="https://github.com/yiliashaw/hexo-theme-prince" target="_blank">Prince</a> by SHAW<script async src="//dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<span id="busuanzi_container_site_pv">本站总访问量<span id="busuanzi_value_site_pv"></span>次</span></p></div></footer><script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script><script src="/js/bootstrap.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/fancybox/3.0.47/jquery.fancybox.min.js"></script><script src="/js/script.js"></script></body></html>
