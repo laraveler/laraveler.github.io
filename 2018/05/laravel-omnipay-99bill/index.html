@@ -1,0 +1,315 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>Laraveler - Keep it simple.</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="/favicon.png"><link href="/css/bootstrap.min.css" rel="stylesheet"><link href="/css/font-awesome.min.css" rel="stylesheet"><link href="/css/main.css" rel="stylesheet"><script>var _hmt = _hmt || [];
+(function() {var hm = document.createElement("script");hm.src = "https://hm.baidu.com/hm.js?715556be789805461bdca8318cb19b5e";var s = document.getElementsByTagName("script")[0];s.parentNode.insertBefore(hm, s);})();</script></head><body><div class="wrap"><nav class="page-navigation"><div class="nav-container"><div class="page-header-logo"><h1 class="prince-log"><a href="/" class="home-link">Laraveler</a></h1></div><button type="button" data-toggle="collapse" data-target=".main-nav-items" class="navbar-toggle"><span class="sr-only">Toggle navigation</span><span class="icon-bar"></span><span class="icon-bar"></span><span class="icon-bar"></span></button><ul class="collapse navbar-collapse main-nav-items"><li class="menu-item"><a href="/" target="_self">Home</a></li><li class="menu-item"><a href="/archives/" target="_self">Archives</a></li><li class="menu-item"><a href="/about/" target="_self">About</a></li></ul></div></nav><main class="prince-container"><div class="post"><article class="post-block"><h1 class="post-title">Laravel快速集成快钱支付，基于Omnipay的快钱支付包</h1><div class="post-info">2018-05-30</div><div class="post-entry"><p>该文档共包含以下5个部分：<br>1、创建交易<br>2、支付回调<br>3、交易查询<br>4、网关退款  </p>
+<h2 id="Quick-Start-快速开始"><a href="#Quick-Start-快速开始" class="headerlink" title="Quick Start  快速开始"></a>Quick Start  快速开始</h2><p>依赖于<a href="https://github.com/omnipay/omnipay" target="_blank" rel="noopener">Omnipay</a> </p>
+<p>PHP版本要求：PHP5.6+</p>
+<h3 id="Install-安装"><a href="#Install-安装" class="headerlink" title="Install 安装"></a>Install 安装</h3><p>通过 <a href="http://getcomposer.org/" target="_blank" rel="noopener">Composer</a> 安装，可以运行：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="meta">$</span> composer require x-class/omnipay-99bill -vvv</span><br></pre></td></tr></table></figure>
+<a id="more"></a>
+<blockquote>
+<p>注意：<br>关于商户号：快钱商家帐号需要联系快钱开通之后才能获取，如果商户号为10012138842，在项目中使用的商户号格式为”快钱商户号01”，如1001213884201，退款接口除外，需要的是不带01的格式。<br>关于密钥：自行根据快钱文档生成公钥和私钥，其中公钥上传到快钱，然后再从快钱下载官方秘钥放到项目当中，自己生成的私钥则用于创建支付时加密使用。<br>关于支付验证：支付成功后的同步回调和异步回调均为Get方式，需要对回调的参数进行验证，以确保是快钱官方的回调。<br>关于订单查询：订单交易状态查询接口除了商户号之外，还需要一个查询key，需要联系快钱的销售人员开通该功能，并获取对应的查询key.<br>关于退款：网关退款接口除了商户号之外，还需要一个退款key，需要联系快钱的销售人员开通该功能，并获取对应的退款key.</p>
+</blockquote>
+<h3 id="开启沙盒调试模式"><a href="#开启沙盒调试模式" class="headerlink" title="开启沙盒调试模式"></a>开启沙盒调试模式</h3><blockquote>
+<p>调试过程可以用如下代码开启沙盒环境，正式生产环境请去掉此代码。</p>
+</blockquote>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$gateway-&gt;setTestMode(<span class="keyword">true</span>);</span><br></pre></td></tr></table></figure>
+<h3 id="创建交易"><a href="#创建交易" class="headerlink" title="创建交易"></a>创建交易</h3><blockquote>
+<p>业务字段说明</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">字段名</th>
+<th style="text-align:left">是否必传</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">orderId</td>
+<td style="text-align:left">Yes</td>
+<td>商户订单号,商户可以根据自己订单号的定义规则来定义该值</td>
+</tr>
+<tr>
+<td style="text-align:left">orderAmount</td>
+<td style="text-align:left">Yes</td>
+<td>订单金额，金额以“分”为单位，商户测试以1分测试即可，切勿以大金额测试。</td>
+</tr>
+<tr>
+<td style="text-align:left">payerName</td>
+<td style="text-align:left">No</td>
+<td>支付人姓名</td>
+</tr>
+<tr>
+<td style="text-align:left">payerContactType</td>
+<td style="text-align:left">No</td>
+<td>支付人联系类型，1 代表电子邮件方式；2 代表手机联系方式</td>
+</tr>
+<tr>
+<td style="text-align:left">payerContact</td>
+<td style="text-align:left">No</td>
+<td>支付人联系方式，与payerContactType设置对应，payerContactType为1，则填写邮箱地址；payerContactType为2，则填写手机号码</td>
+</tr>
+<tr>
+<td style="text-align:left">productId</td>
+<td style="text-align:left">No</td>
+<td>商品代码</td>
+</tr>
+<tr>
+<td style="text-align:left">productName</td>
+<td style="text-align:left">No</td>
+<td>商品名称</td>
+</tr>
+<tr>
+<td style="text-align:left">productNum</td>
+<td style="text-align:left">No</td>
+<td>商品数量</td>
+</tr>
+<tr>
+<td style="text-align:left">productDesc</td>
+<td style="text-align:left">No</td>
+<td>商品描述</td>
+</tr>
+<tr>
+<td style="text-align:left">ext1</td>
+<td style="text-align:left">No</td>
+<td>扩展字段1，商户可以传递自己需要的参数，支付完快钱会原值返回</td>
+</tr>
+<tr>
+<td style="text-align:left">ext2</td>
+<td style="text-align:left">No</td>
+<td>扩展字段2，商户可以传递自己需要的参数，支付完快钱会原值返回</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>网站端 - 发起支付代码</p>
+</blockquote>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">$gateway = \Omnipay\Omnipay::create(<span class="string">'Bill99'</span>);</span><br><span class="line">$gateway-&gt;setMchId(<span class="string">'mch-id'</span>); <span class="comment">//商户号</span></span><br><span class="line">$gateway-&gt;setPrivateKey(<span class="string">'private_key'</span>); <span class="comment">//私钥内容，可以是文件路径，也可以是内容,如果是内容，保持全在同一行。</span></span><br><span class="line">$gateway-&gt;setReturnUrl(<span class="string">'https://www.example.com/return'</span>);<span class="comment">//支付成功后同步跳转的url</span></span><br><span class="line">$gateway-&gt;setNotifyUrl(<span class="string">'https://www.example.com/notify'</span>);<span class="comment">//支付成功后异步通知url</span></span><br><span class="line"></span><br><span class="line">$request = $gateway-&gt;purchase([</span><br><span class="line">    <span class="string">'orderId'</span> =&gt; date(<span class="string">'YmdHis'</span>) . mt_rand(<span class="number">1000</span>, <span class="number">9999</span>),</span><br><span class="line">    <span class="string">'orderAmount'</span> =&gt; <span class="number">1</span>,</span><br><span class="line">]);</span><br><span class="line"></span><br><span class="line">$response = $request-&gt;send();</span><br><span class="line">$response-&gt;redirect();</span><br><span class="line"><span class="keyword">exit</span>;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>移动端 - 发起支付代码</p>
+</blockquote>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">$gateway = \Omnipay\Omnipay::create(<span class="string">'Bill99'</span>);</span><br><span class="line">$gateway-&gt;setMchId(<span class="string">'mch-id'</span>); <span class="comment">//商户号</span></span><br><span class="line">$gateway-&gt;setPrivateKey(<span class="string">'private_key'</span>); <span class="comment">//私钥内容，可以是文件路径，也可以是内容,如果是内容，保持全在同一行。</span></span><br><span class="line">$gateway-&gt;setReturnUrl(<span class="string">'https://www.example.com/return'</span>);<span class="comment">//支付成功后同步跳转的url</span></span><br><span class="line">$gateway-&gt;setNotifyUrl(<span class="string">'https://www.example.com/notify'</span>);<span class="comment">//支付成功后异步通知url</span></span><br><span class="line"></span><br><span class="line">$request = $gateway-&gt;wapPurchase([</span><br><span class="line">    <span class="string">'orderId'</span> =&gt; date(<span class="string">'YmdHis'</span>) . mt_rand(<span class="number">1000</span>, <span class="number">9999</span>),</span><br><span class="line">    <span class="string">'orderAmount'</span> =&gt; <span class="number">1</span>,</span><br><span class="line">]);</span><br><span class="line"></span><br><span class="line">$response = $request-&gt;send();</span><br><span class="line">$response-&gt;redirect();</span><br><span class="line"><span class="keyword">exit</span>;</span><br></pre></td></tr></table></figure>
+<h3 id="支付回调"><a href="#支付回调" class="headerlink" title="支付回调"></a>支付回调</h3><blockquote>
+<p>回调成功的业务参数</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">字段名</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">orderId</td>
+<td>商户订单号</td>
+</tr>
+<tr>
+<td style="text-align:left">orderAmount</td>
+<td>订单金额，金额以“分”为单位</td>
+</tr>
+<tr>
+<td style="text-align:left">orderTime</td>
+<td>订单交易创建时间</td>
+</tr>
+<tr>
+<td style="text-align:left">dealId</td>
+<td>快钱交易号</td>
+</tr>
+<tr>
+<td style="text-align:left">dealTime</td>
+<td>交易成功时间</td>
+</tr>
+<tr>
+<td style="text-align:left">payAmount</td>
+<td>实际交易金额，金额以“分”为单位</td>
+</tr>
+<tr>
+<td style="text-align:left">bankDealId</td>
+<td>银行交易号</td>
+</tr>
+<tr>
+<td style="text-align:left">bankId</td>
+<td>银行简码</td>
+</tr>
+<tr>
+<td style="text-align:left">fee</td>
+<td>手续费</td>
+</tr>
+<tr>
+<td style="text-align:left">bindMobile</td>
+<td>绑定的手机号</td>
+</tr>
+<tr>
+<td style="text-align:left">bindCard</td>
+<td>绑定的卡号</td>
+</tr>
+<tr>
+<td style="text-align:left">payType</td>
+<td>支付方式，详见快钱官方文档说明</td>
+</tr>
+<tr>
+<td style="text-align:left">ext1</td>
+<td>扩展字段1</td>
+</tr>
+<tr>
+<td style="text-align:left">ext2</td>
+<td>扩展字段2</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>说明：把自己的公钥上传到快钱之后，从快钱下载下来的密钥文件名类似”99bill[1].cert.rsa.20140803.cer”格式。</p>
+</blockquote>
+<blockquote>
+<p>回调验证代码(快钱回调方式为Get)</p>
+</blockquote>
+<figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">$gateway = Omnipay::create(<span class="string">'Bill99'</span>);</span><br><span class="line">$gateway-&gt;setMchId(<span class="string">'mch-id'</span>); <span class="comment">//商户号</span></span><br><span class="line">$gateway-&gt;setPublicKey(<span class="string">'99bill_publickey'</span>); <span class="comment">//快钱下载的密钥内容，可以是文件路径，也可以是内容,如果是内容，保持全在同一行。</span></span><br><span class="line">$request = $gateway-&gt;completePurchase();</span><br><span class="line">$request-&gt;setParams(array_merge($_GET));<span class="comment">//获取参数的方法可以用$_GET，也可以用某些框架自带的获取方法，总之要传入url中的Get参数</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">    $response = $request-&gt;send();</span><br><span class="line">    <span class="keyword">if</span> ($response-&gt;isPaid()) &#123;</span><br><span class="line">        $data = $response-&gt;getData();<span class="comment">//业务参数   </span></span><br><span class="line">             </span><br><span class="line">        <span class="comment">// @todo 支付成功业务逻辑处理，根据返回的业务参数，修改数据库中对应的订单状态</span></span><br><span class="line">        </span><br><span class="line">        <span class="comment">/** 这里需要注意，如果同步回调和同步回调（两者均为GET）在同一处处理，</span></span><br><span class="line"><span class="comment">         * 需要通过一定方式区分是异步还是同步，两者返回信息不同，如用户登录状态</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line"> </span><br><span class="line">        <span class="comment">//异步回调值，该返回值为快钱必需</span></span><br><span class="line">        <span class="keyword">die</span>($response-&gt;asyncResult(<span class="keyword">true</span>,$redirectUrl)); <span class="comment">//成功第一个参数为true，第二个参数为要跳转的url</span></span><br><span class="line">        <span class="comment">//同步回调</span></span><br><span class="line">        <span class="comment">// redirect跳转页面...</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">       <span class="comment">// @todo 支付失败的业务逻辑</span></span><br><span class="line">       <span class="comment">//异步回调值，该返回值为快钱必需</span></span><br><span class="line">       <span class="keyword">die</span>($response-&gt;asyncResult(<span class="keyword">false</span>)); <span class="comment">//失败只需要传入false</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125; <span class="keyword">catch</span> (<span class="keyword">Exception</span> $e) &#123;</span><br><span class="line">    <span class="comment">// @todo 这里为支付异常业务逻辑</span></span><br><span class="line">    <span class="comment">//异步回调值，该返回值为快钱必需</span></span><br><span class="line">   <span class="keyword">die</span>($response-&gt;asyncResult(<span class="keyword">false</span>)); <span class="comment">//失败只需要传入false</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="查询交易支付状态"><a href="#查询交易支付状态" class="headerlink" title="查询交易支付状态"></a>查询交易支付状态</h3><blockquote>
+<p>如果因快钱故障或商户自己服务器故障，成功的交易导致回调失败，则可以用该方法进行查单，通过查单的结果进行数据库状态变更。</p>
+</blockquote>
+<blockquote>
+<p>查询请求业务参数组合一</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">字段名</th>
+<th style="text-align:left">是否必传</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">orderId</td>
+<td style="text-align:left">Yes</td>
+<td>商户订单号</td>
+</tr>
+<tr>
+<td style="text-align:left">queryType</td>
+<td style="text-align:left">No</td>
+<td>查询方式默认为2，即根据商户订单号查询</td>
+</tr>
+<tr>
+<td style="text-align:left">requestPage</td>
+<td style="text-align:left">No</td>
+<td>在查询结果数据总量很大时，快钱会将支付结果分多次返回。本参数表示商户需要得到的记录集页码。默认为1，表示第1 页</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>查询请求业务参数组合二</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">字段名</th>
+<th style="text-align:left">是否必传</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">queryType</td>
+<td style="text-align:left">Yes</td>
+<td>值固定为1，即根据日期查询</td>
+</tr>
+<tr>
+<td style="text-align:left">startTime</td>
+<td style="text-align:left">Yes</td>
+<td>开始时间,数字串，一共14 位,格式为：年[4 位]月[2 位]日[2 位]时[2 位]分[2 位]秒[2位]，例如：20071117020101</td>
+</tr>
+<tr>
+<td style="text-align:left">endTime</td>
+<td style="text-align:left">Yes</td>
+<td>结束时间,数字串，一共14 位,格式为：年[4 位]月[2 位]日[2 位]时[2 位]分[2 位]秒[2位]，例如：20071117020101</td>
+</tr>
+<tr>
+<td style="text-align:left">requestPage</td>
+<td style="text-align:left">No</td>
+<td>在查询结果数据总量很大时，快钱会将支付结果分多次返回。本参数表示商户需要得到的记录集页码。默认为1，表示第1 页</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>交易查询 - 实现代码<br><figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">$gateway = \Omnipay\Omnipay::create(<span class="string">'Bill99'</span>);</span><br><span class="line">$gateway-&gt;setMchId(<span class="string">'mch-id'</span>); <span class="comment">//商户号</span></span><br><span class="line">$gateway-&gt;setQueryKey(<span class="string">'query_key'</span>);<span class="comment">//交易查询key</span></span><br><span class="line"></span><br><span class="line"><span class="comment">//查询方式一</span></span><br><span class="line">$request = $gateway-&gt;query([</span><br><span class="line">	<span class="string">'orderId'</span>  =&gt; <span class="string">'201805261456145505'</span>,</span><br><span class="line">]);</span><br><span class="line"></span><br><span class="line"><span class="comment">//查询方式二</span></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">$request = $gateway-&gt;query([</span></span><br><span class="line"><span class="comment">	'queryType' =&gt; 1,</span></span><br><span class="line"><span class="comment">	'startTime' =&gt; '20180501000101',</span></span><br><span class="line"><span class="comment">	'endTime'   =&gt; '20180527000101',</span></span><br><span class="line"><span class="comment">]);</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">	$response = $request-&gt;send();</span><br><span class="line">	<span class="keyword">if</span> ($response-&gt;isSuccessful()) &#123;</span><br><span class="line">        $data=$response-&gt;getData();</span><br><span class="line">        <span class="comment">//@todo 支付成功业务逻辑处理，根据返回的业务参数，修改数据库中对应的订单状态</span></span><br><span class="line">	&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">	    <span class="comment">// @todo 这里为支付异常业务逻辑</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125; <span class="keyword">catch</span> (<span class="keyword">Exception</span> $e) &#123;</span><br><span class="line">    <span class="comment">// @todo 这里为支付异常业务逻辑</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+</blockquote>
+<h3 id="订单网关退款"><a href="#订单网关退款" class="headerlink" title="订单网关退款"></a>订单网关退款</h3><blockquote>
+<p>如未开通网关退款，则需要登录快钱官方商家后台进行退款操作，开通网关退款之后，则可以直接调用此接口退款。</p>
+</blockquote>
+<blockquote>
+<p>警告：此接口为无密退款，因此开发人员需要绝对保证操作后台安全，或加强退款安全验证机制，否则因安全系数太低导致的事故请自行承担。</p>
+</blockquote>
+<blockquote>
+<p>注意一：这里的商户号为不加01的商户号！！！</p>
+</blockquote>
+<blockquote>
+<p>注意二：这里面的退款金额以人民币元为单位！！！</p>
+</blockquote>
+<blockquote>
+<p>注意三：同一笔交易可以分多次退款，但是退款总金额不得超过订单支付总金额</p>
+</blockquote>
+<blockquote>
+<p>退款请求业务参数</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">字段名</th>
+<th style="text-align:left">是否必传</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">orderId</td>
+<td style="text-align:left">Yes</td>
+<td>商户订单号</td>
+</tr>
+<tr>
+<td style="text-align:left">txOrder</td>
+<td style="text-align:left">Yes</td>
+<td>退款流水号,长度不超过50，英文和数字组成</td>
+</tr>
+<tr>
+<td style="text-align:left">amount</td>
+<td style="text-align:left">Yes</td>
+<td>退款金额，整数或小数位为两位，以人民币元为单位。</td>
+</tr>
+<tr>
+<td style="text-align:left">postdate</td>
+<td style="text-align:left">Yes</td>
+<td>退款提交时间，数字串，一共14 位,格式为：年[4 位]月[2 位]日[2 位]时[2 位]分[2 位]秒[2位]，例如：20071117020101</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>退款成功业务参数</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th style="text-align:left">字段名</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">orderId</td>
+<td>商户订单号</td>
+</tr>
+<tr>
+<td style="text-align:left">txOrder</td>
+<td>退款流水号</td>
+</tr>
+<tr>
+<td style="text-align:left">amount</td>
+<td>退款金额</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>网关退款 - 实现代码<br><figure class="highlight php"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">$gateway = \Omnipay\Omnipay::create(<span class="string">'Bill99'</span>);</span><br><span class="line">$gateway-&gt;setMchId(<span class="string">'mch-id'</span>); <span class="comment">//商户号</span></span><br><span class="line">$gateway-&gt;setRefundKey(<span class="string">'refund_key'</span>);<span class="comment">//退款key</span></span><br><span class="line"></span><br><span class="line">$request = $gateway-&gt;refund([</span><br><span class="line">	<span class="string">'orderId'</span>  =&gt; <span class="string">'P270000180502933093'</span>,</span><br><span class="line">	<span class="string">'txOrder'</span>  =&gt; date(<span class="string">'YmdHis'</span>),</span><br><span class="line">	<span class="string">'amount'</span>   =&gt; <span class="number">0.01</span>,</span><br><span class="line">	<span class="string">'postdate'</span> =&gt; date(<span class="string">'YmdHis'</span>),</span><br><span class="line">]);</span><br><span class="line"></span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">	$response = $request-&gt;send();</span><br><span class="line">	<span class="keyword">if</span> ($response-&gt;isSuccessful()) &#123;</span><br><span class="line">		$data=$response-&gt;getData();</span><br><span class="line">		<span class="comment">// @todo 退款成功业务逻辑处理，根据返回的业务参数，修改数据库中对应的订单状态</span></span><br><span class="line">	&#125;<span class="keyword">else</span>&#123;</span><br><span class="line">	    <span class="comment">// @todo 这里为退款异常业务逻辑</span></span><br><span class="line">	&#125;</span><br><span class="line">&#125; <span class="keyword">catch</span> (<span class="keyword">Exception</span> $e) &#123;</span><br><span class="line">    <span class="comment">// @todo 这里为退款异常业务逻辑</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+</blockquote>
+</div><div class="post-tags-box"><a class="tag-link" href="/tags/99bill/">99bill</a>, <a class="tag-link" href="/tags/laravel/">laravel</a>, <a class="tag-link" href="/tags/lumen/">lumen</a>, <a class="tag-link" href="/tags/omnipay/">omnipay</a></div><div class="post-count">本文被阅读 <span id="busuanzi_value_page_pv"></span> 次</div></article></div><div class="post-nav"><div class="next-wrap col-md-6 col-xs-6 col-md-offset-6 col-xs-offset-6"><a href="/2017/11/lumen5-jwt-auth/" class="next-post">Lumen5.5中使用 JWT（Json Web Token） 实现基于API的用户认证</a><i class="fa fa-angle-double-right"></i></div></div></main></div><footer><div class="copyright"><p>Crafted with <i class="fa fa-heart"></i> by&nbsp;Laraveler&nbsp;|&nbsp;<a href="http://hexo.io/" target="_blank">Hexo</a>Theme <a href="https://github.com/yiliashaw/hexo-theme-prince" target="_blank">Prince</a> by SHAW<script async src="//dn-lbstatics.qbox.me/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+<span id="busuanzi_container_site_pv">本站总访问量<span id="busuanzi_value_site_uv"></span>人</span> / <span id="busuanzi_value_site_pv"></span>次</p></div></footer><script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script><script src="/js/bootstrap.min.js"></script><script src="//cdnjs.cloudflare.com/ajax/libs/fancybox/3.0.47/jquery.fancybox.min.js"></script><script src="/js/script.js"></script></body></html>
